@@ -56,13 +56,6 @@ function get_from_env_or_db(value) {
     staleTimeout = 3600;
   }
 
-  try {
-    staleTimeout = JSON.parse(process.env.REDDIT_CONSIDER_INVOCATION_STALE);
-  } catch (err) {
-    console.error('failed to load stale timeout from environment variable!');
-    staleTimeout = 3600;
-  }
-
   let clientOptions = {
     userAgent: get_from_env_or_db("reddit_user_agent"),
     clientId: get_from_env_or_db("reddit_client_id"),
