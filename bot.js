@@ -437,7 +437,8 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
               } else {
   
                 try {
-                  await this.apologize(submission, `Something went really wrong. /u/Chaphasilor please help o.O`)
+                  // TODO /u/Chaphasilor
+                  await this.apologize(submission, `Something went really wrong. please help o.O`)
                 } catch (err) {
                   console.error(`Failed to apologize:`, err)
                 }
@@ -780,11 +781,14 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
       
       // only include new mentions (not dealt with by the bot)
       mentions = mentions.filter(comment => {
+        console.debug("blacklist status: ", query("SELECT id from oldMentions WHERE id = ?;", comment.id))
+        return query("SELECT id from oldMentions WHERE id = ?;", comment.id)
         return !this.oldMentions.includes(comment.id);
       })
       // remember all new mentions
       mentions.forEach(comment => {
-        this.oldMentions.push(comment.id);
+        insert("oldMentions", comment.id)
+        // this.oldMentions.push(comment.id);
       })
       
       // filter out stale comments
@@ -911,7 +915,8 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
           } else {
 
             try {
-              await this.apologize(comment, `Something went really wrong. /u/Chaphasilor please help o.O`)
+              // TODO: Readd username for help /u/Chaphasilor
+              await this.apologize(comment, `Something went really wrong.  please help o.O`)
             } catch (err) {
               console.error(`Failed to apologize:`, err)
             }
