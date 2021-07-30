@@ -2,19 +2,17 @@ const Snoowrap = require('snoowrap');
 const { scanUrls, extractUrls } = require('./util');
 const { ScanError, MissingODError } = require(`./errors`)
 const { sendPM } = require(`./pm`)
+const { insert, query } = require("./db.js");
+
 
 module.exports = class Bot {
 
-  constructor(toScrape, praises, clientOptions, blacklistedUsers, staleTimeout) {
+  constructor(toScrape, praises, clientOptions, staleTimeout) {
 
     this.BOT_START = Date.now() / 1000;
     //TODO limit array size!!!
-    this.oldSubmissions = [];
-    this.oldMentions = [];
-    this.oldPMs = [];
     this.toScrape = toScrape;
     this.praises = praises;
-    this.blacklistedUsers = blacklistedUsers;
     this.invocationsStaleTimeout = staleTimeout;
     this.client = new Snoowrap(clientOptions);
     this.username = clientOptions.username;
@@ -108,6 +106,7 @@ module.exports = class Bot {
     for (let type of Object.keys(this.toScrape)) {
 
       for (let subredditName of this.toScrape[type]) {
+        console.debug("subs", subredditName)
         let subs;
         let sub = await this.client.getSubreddit(subredditName);
         switch (type) {
@@ -163,16 +162,20 @@ module.exports = class Bot {
 
     // filter posts by blacklisted users
     filteredSubmissions = filteredSubmissions.filter(submission => {
-      return !this.blacklistedUsers.includes(submission.author.name);
+      console.debug("blacklist status: ", query("SELECT username from blacklisted WHERE username = ?;", submission.author.name))
+      return query("SELECT username from blacklisted WHERE username = ?;", submission.author.name)
     })
     
     // only include new submissions (not dealt with by the bot)
     filteredSubmissions = filteredSubmissions.filter(submission => {
-      return !this.oldSubmissions.includes(submission.id);
+      console.debug("New submission status: ", query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id))
+      return query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id)
+      // return !this.oldSubmissions.includes(submission.id);
     })
     // remember all new submissions
     filteredSubmissions.forEach(submission => {
-      this.oldSubmissions.push(submission.id);
+      insert("oldSubmissions", submission.id)
+      // this.oldSubmissions.push(submission.id);
     })
 
     return filteredSubmissions;
@@ -258,6 +261,8 @@ ${scanResults.successful[0].credits}
   }
 
   async extractOdUrlsFromSubmissionOrComment(submission, comment) {
+
+    console.debug(submission, comment)
 
     let odUrls = await extractUrls(comment, true);
 
@@ -538,11 +543,14 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
 
       // only include new PMs (not dealt with by the bot)
       pms = pms.filter(message => {
-        return !this.oldPMs.includes(message.id);
+        console.debug("New PM status: ", query("SELECT id FROM oldPMs WHERE id = ?;", message.id))
+        return query("SELECT id FROM oldPMs WHERE id = ?;", message.id)
+        // return !this.oldPMs.includes(message.id);
       })
       // remember all new PMs
       pms.forEach(message => {
-        this.oldPMs.push(message.id);
+        insert("oldPMs", message.id)
+        // this.oldPMs.push(message.id);
       })
       
       // filter out stale PMs
@@ -590,7 +598,7 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
             } else {
 
               try {
-                await this.apologize(message, `Something went really wrong. /u/Chaphasilor please help o.O`)
+                await this.apologize(message, `Something went really wrong.  please help o.O`)
               } catch (err) {
                 console.error(`Failed to apologize:`, err)
               }
@@ -650,11 +658,14 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
       
       // only include new mentions (not dealt with by the bot)
       mentions = mentions.filter(comment => {
-        return !this.oldMentions.includes(comment.id);
+        console.debug("old mention status: ", !query("SELECT id FROM oldMentions WHERE id = ?;", comment.id))
+        return !query("SELECT id FROM oldMentions WHERE id = ?;", comment.id)
+        // return !this.oldMentions.includes(comment.id);
       })
       // remember all new mentions
       mentions.forEach(comment => {
-        this.oldMentions.push(comment.id);
+        insert("oldMentions", comment.id)
+        // this.oldMentions.push(comment.id);
       })
       
       // filter out stale comments

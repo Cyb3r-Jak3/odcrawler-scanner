@@ -5,6 +5,7 @@ const markdownLinkExtractor = require('markdown-link-extractor');
 const fetch = require(`node-fetch`);
 const FormData = require(`form-data`);
 const odd = require(`open-directory-downloader`);
+const { query } = require("./db.js");
 
 const { ScanError } = require(`./errors`)
 
@@ -70,12 +71,13 @@ module.exports.urlsFromText = function urlsFromText(text) {
 
 module.exports.extractUrls = async function extractUrls(submissionOrComment, isComment = false) {
 
-  const excludedDomains = JSON.parse(process.env.DOMAINS_EXCLUDED_FROM_SCANNING)
+  // const excludedDomains = JSON.parse(process.env.DOMAINS_EXCLUDED_FROM_SCANNING)
+  const excludedDomains = query("SELECT domain FROM excluded_domains;")
 
   let matches;
   
   if (isComment) {
-
+    console.debug(submissionOrComment)
     matches = module.exports.urlsFromText(submissionOrComment.body);
   
   } else {

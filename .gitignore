@@ -107,3 +107,4 @@ dist
 .vscode/
 
 db.json
+db.sqlite3
