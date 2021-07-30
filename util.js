@@ -50,6 +50,10 @@ module.exports.scanUrls = async function scanUrls(urls) {
     throw new ScanError(scanResults.failed.length === 1 ? scanResults.failed[0].reason : `Couldn't scan any of the provided ODs`)
   }
 
+  if (scanResults.successful.length === 0 && urls.length > 0) {
+    throw new Error(scanResults.failed.length === 1 ? scanResults.failed[0].reason : `Couldn't scan any of the provided ODs`)
+  }
+
   return scanResults;
   
 }
@@ -173,6 +177,8 @@ async function checkDiscoveryServerReachable() {
     console.debug(`Waiting ${sleepMinutes} second${sleepMinutes > 1 ? `s` : ``} before trying again`)
     await sleep(sleepMinutes*1000)
 
+    console.log(`Saved scan result to db file`)
+    
   }
   
 }

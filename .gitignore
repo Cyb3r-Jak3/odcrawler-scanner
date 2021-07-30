@@ -108,3 +108,4 @@ dist
 
 db.json
 db.sqlite3
+.devcontainer/

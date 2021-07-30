@@ -746,18 +746,113 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
       }
 
     } catch (err) {
-
       console.error(`an error occurred checking for mentions:`, err);
-      if (err.message.includes(`RATELIMIT`)) {
+    } finally {
+      this.running.checkPMs = false;
+    }
 
-        let match = err.message.match(/Take a break for (\d+) seconds/)
-        if (match.length > 1) {
-          console.warn(`Ratelimited for ${match[1]} seconds!`)
-          await this.sleep(1000 * parseInt(match[1]) * 1.5) // wait a bit longer that the duration reported by the API
+  }
+
+  async checkForMentions() {
+
+    // console.log('checking inbox for mentions...');
+    this.running.checkForMentions = true;
+    let success = 0;
+    let failed = 0;
+
+    try {
+
+      let mentions = []
+      try {
+
+        mentions = (await this.client.getInbox({
+          filter: `mentions`
+        })).filter(comment => {
+          return this.subsToMonitor.map(sub => sub.toLowerCase()).includes(comment.subreddit.display_name.toLowerCase())
+        });
+
+      } catch (err) {
+        console.error(`Couldn't load mentions, seems like there aren't any?:`, err)
+      }
+
+      // filter only actual comment replies which the bot didn't already comment on
+      mentions = mentions.filter(message => message.was_comment == true)
+      
+      // only include new mentions (not dealt with by the bot)
+      mentions = mentions.filter(comment => {
+        return !this.oldMentions.includes(comment.id);
+      })
+      // remember all new mentions
+      mentions.forEach(comment => {
+        this.oldMentions.push(comment.id);
+      })
+      
+      // filter out stale comments
+      mentions = mentions.filter(comment => {
+        return comment.created_utc*1000 >= Date.now()-this.invocationsStaleTimeout*1000;
+      })
+      
+      let unrepliedInvocations = [];
+
+      // temporary workaround until https://github.com/not-an-aardvark/snoowrap/issues/305 is resolved
+      // console.log(`sleeping 10s before checking comments for replies`)
+      await this.sleep(10000)
+
+      for (let comment of mentions) {
+        if (!(await this.alreadyCommentedComment(comment))) {
+          unrepliedInvocations.push(comment);
+        } else {
+          // console.log(`already replied...`);
+        }
+      }
+
+      if (unrepliedInvocations.length > 0) {
+        console.log(`unrepliedInvocations:`, unrepliedInvocations);
+      }
+
+      for (let comment of unrepliedInvocations) {
+
+        comment = await (await this.client.getComment(comment.id)).fetch() // reload the comment because a comment fetched via the inbox is missing some fields (like link_id)
+
+        // const submission = await this.client.getSubmission(comment.context.split(`/`)[4]);
+        const submission = await this.client.getSubmission(comment.link_id);
+  
+        try {
+
+          await this.scanAndComment(submission, comment)
+          console.log(`commented successfully!`)
+
+        } catch (err) {
+
+          if (err.message.includes(`DELETED_COMMENT`)) {
+            console.warn(`Invoking comment was deleted by the user!`)  
+          } else if (err.message.includes(`RATELIMIT`)) {
+
+            let match = err.message.match(/Take a break for (\d+) seconds/)
+            if (match.length > 1) {
+              console.warn(`Ratelimited for ${match[1]} seconds!`)
+              await this.sleep(1000 * parseInt(match[1]) * 1.5) // wait a bit longer that the duration reported by the API
+            }
+
+          } else {
+
+            console.error(`failed to reply with scan result:`, err)
+
+            try {
+              await this.apologize(comment, err.message)
+            } catch (err) {
+              console.error(`Failed to apologize:`, err)
+            }
+
+          }
+
+          
         }
 
       }
 
+    } catch (err) {
+      console.error(`an error occurred checking for mentions:`, err);
     } finally {
       this.running.checkForMentions = false;
     }
@@ -844,6 +939,12 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
   //   console.log('updated link on ', 'https://reddit.com/' + submission.id);
 
   // }
+
+  sleep(ms) {
+    return new Promise((resolve, reject) => {
+      setTimeout(resolve, ms);
+    })
+  }
 
   sleep(ms) {
     return new Promise((resolve, reject) => {
