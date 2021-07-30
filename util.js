@@ -81,7 +81,7 @@ module.exports.extractUrls = async function extractUrls(submissionOrComment, isC
   let matches;
   
   if (isComment) {
-    console.debug(submissionOrComment)
+    console.debug("Commect Check: ", submissionOrComment)
     matches = module.exports.urlsFromText(submissionOrComment.body);
   
   } else {

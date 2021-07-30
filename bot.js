@@ -4,13 +4,15 @@ const { ScanError, MissingODError } = require(`./errors`)
 const { sendPM } = require(`./pm`)
 const { insert, query } = require("./db.js");
 
-
 module.exports = class Bot {
 
   constructor(toScrape, praises, clientOptions, staleTimeout) {
 
     this.BOT_START = Date.now() / 1000;
     //TODO limit array size!!!
+    // this.oldSubmissions = [];
+    // this.oldMentions = [];
+    // this.oldPMs = [];
     this.toScrape = toScrape;
     this.praises = praises;
     this.invocationsStaleTimeout = staleTimeout;
@@ -106,7 +108,6 @@ module.exports = class Bot {
     for (let type of Object.keys(this.toScrape)) {
 
       for (let subredditName of this.toScrape[type]) {
-        console.debug("subs", subredditName)
         let subs;
         let sub = await this.client.getSubreddit(subredditName);
         switch (type) {
@@ -162,20 +163,21 @@ module.exports = class Bot {
 
     // filter posts by blacklisted users
     filteredSubmissions = filteredSubmissions.filter(submission => {
-      console.debug("blacklist status: ", query("SELECT username from blacklisted WHERE username = ?;", submission.author.name))
-      return query("SELECT username from blacklisted WHERE username = ?;", submission.author.name)
+        console.debug("blacklist status: ", query("SELECT username from blacklisted WHERE username = ?;", submission.author.name))
+        return query("SELECT username from blacklisted WHERE username = ?;", submission.author.name)
+    //   return !this.blacklistedUsers.includes(submission.author.name);
     })
 
     // only include new submissions (not dealt with by the bot)
     filteredSubmissions = filteredSubmissions.filter(submission => {
-      console.debug("New submission status: ", query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id))
-      return query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id)
-      // return !this.oldSubmissions.includes(submission.id);
+        console.debug("New submission status: ", query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id))
+        return query("SELECT id FROM oldSubmissions WHERE id = ?", submission.id)
+    //   return !this.oldSubmissions.includes(submission.id);
     })
     // remember all new submissions
     filteredSubmissions.forEach(submission => {
-      insert("oldSubmissions", submission.id)
-      // this.oldSubmissions.push(submission.id);
+        insert("oldSubmissions", submission.id)
+        // this.oldSubmissions.push(submission.id);
     })
 
     return filteredSubmissions;
@@ -262,8 +264,6 @@ ${scanResults.successful[0].credits}
 
   async extractOdUrlsFromSubmissionOrComment(submission, comment) {
 
-    console.debug(submission, comment)
-
     let odUrls = await extractUrls(comment, true);
 
     if (odUrls.length > 0) {
@@ -280,7 +280,10 @@ ${scanResults.successful[0].credits}
 
   async scanAndComment(submission, comment) {
 
+
     submission = await submission.fetch();
+
+    console.debug("Submission: ", submission, "Comment: ", comment)
 
     if (comment) {
       comment = await comment.fetch();
@@ -437,13 +440,14 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
               } else {
 
                 try {
-                  // TODO /u/Chaphasilor
-                  await this.apologize(submission, `Something went really wrong. please help o.O`)
+                    // /u/Chaphasilor
+                  await this.apologize(submission, `Something went really wrong.  please help o.O`)
                 } catch (err) {
                   console.error(`Failed to apologize:`, err)
                 }
 
               }
+
             }
 
           }
@@ -598,6 +602,7 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
             } else {
 
               try {
+                  // /u/Chaphasilor
                 await this.apologize(message, `Something went really wrong.  please help o.O`)
               } catch (err) {
                 console.error(`Failed to apologize:`, err)
@@ -658,8 +663,8 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
 
       // only include new mentions (not dealt with by the bot)
       mentions = mentions.filter(comment => {
-        console.debug("old mention status: ", !query("SELECT id FROM oldMentions WHERE id = ?;", comment.id))
-        return !query("SELECT id FROM oldMentions WHERE id = ?;", comment.id)
+        console.debug("old mention status: ", query("SELECT id FROM oldMentions WHERE id = ?;", comment.id))
+        return query("SELECT id FROM oldMentions WHERE id = ?;", comment.id)
         // return !this.oldMentions.includes(comment.id);
       })
       // remember all new mentions
@@ -816,7 +821,7 @@ Sorry, I couldn't find any OD URLs in both the post or your comment  :/
           } else {
 
             try {
-              // TODO: Readd username for help /u/Chaphasilor
+                // /u/Chaphasilor
               await this.apologize(comment, `Something went really wrong.  please help o.O`)
             } catch (err) {
               console.error(`Failed to apologize:`, err)
